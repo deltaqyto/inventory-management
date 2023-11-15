@@ -1,19 +1,52 @@
-import copy
+import yaml
+import logging
 
 
 class Item:
-    def __init__(self, description="", quantity=1, location="", modifiers=None, imaged=False):
-        self.description = description
-        self.quantity = quantity
-        self.location = location
-        self.modifiers = [] if modifiers is None else modifiers
-        self.imaged = imaged
+    def __init__(self, yaml_string=None, description=None, location=None, modifiers=None, imaged=False, logger=None):
+        self.logger = logging.getLogger(__name__) if logger is None else logger
+        if yaml_string:
+            self.load_from_yaml(yaml_string)
+        else:
+            self.description = description
+            self.location = location
+            self.modifiers = [] if modifiers is None else modifiers
+            self.imaged = imaged
 
-    def split_stack(self, seperation_amount):
-        if seperation_amount >= self.quantity:
-            raise ValueError(f"{seperation_amount} larger than stack quantity {self.quantity}")
+    # todo error if no desc provided
+    def clear(self):
+        self.description = None
+        self.location = None
+        self.modifiers = []
+        self.imaged = None
 
-        new_stack = copy.deepcopy(self)
-        new_stack.quantity = seperation_amount
-        self.quantity -= seperation_amount
-        return new_stack
+    def load_from_yaml(self, yaml_string):
+        self.clear()
+        data = yaml.safe_load(yaml_string)
+
+        # Expected keys
+        expected_keys = {"d", "loc", "modifier", "imaged"}
+
+        # Check the type of parsed data
+        if isinstance(data, dict):
+            # Normalize keys to lowercase and process
+            for key, value in data.items():
+                key_lower = key.lower()
+                if key_lower == "d":
+                    self.description = value
+                elif key_lower == "loc":
+                    self.location = value
+                elif key_lower == "modifier":
+                    self.modifiers = value
+                elif key_lower == "imaged":
+                    self.imaged = value
+                else:
+                    # Log unexpected keys
+                    self.logger.warning(f"Unexpected key '{key}' in YAML data")
+
+        elif isinstance(data, str):
+            # Process string data as description
+            self.description = data
+        else:
+            # Raise an error for invalid data type
+            raise ValueError("YAML string must be either a dictionary for item properties or a string for description")
